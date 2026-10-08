@@ -42,11 +42,12 @@ input[type=text],input[type=number],textarea{width:100%;border:1.5px solid var(-
 #toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#3d3426;color:#fff;padding:9px 16px;border-radius:99px;z-index:30;display:none;font-size:13px}
 #img{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;z-index:40}#img img{max-width:94%;max-height:90%;border-radius:12px}
 .th{width:44px;height:44px;border-radius:10px;object-fit:cover;margin-top:6px}
+.fc{width:56px;height:56px;border-radius:16px;object-fit:cover;flex:none;display:flex;align-items:center;justify-content:center;background:var(--line)}
 </style>
 </head>
 <body>
 <div id="app"></div>
-<button id="fab" onclick="openD()">+</button>
+<button id="fab" onclick="T===3?fpForm():openD()">+</button>
 <div id="mask" onclick="closeD()"></div><div id="dr"></div><div id="toast"></div>
 <div id="img" onclick="this.style.display='none'"><img></div>
 
@@ -71,7 +72,7 @@ const cat=k=>CATS.find(c=>c[0]===k)||CATS[5];
 let S=JSON.parse(localStorage.tripS||'null')||{name:'Langkawi Trip 2026',date:'9 Oct – 12 Oct',
  m:[1,2,3,4,5].map(i=>({id:'m'+(i-1),name:'成员'+i,e:''})),pool:[],exp:[]};
 let T=0,F='all',P=0,D=null;
-const fix=()=>{S.pool=S.pool||[];S.exp=S.exp||[];S.exp.forEach(e=>{e.ex=e.ex||[]})};
+const fix=()=>{S.pool=S.pool||[];S.exp=S.exp||[];S.exp.forEach(e=>{e.ex=e.ex||[]});S.fp=S.fp||[];S.fp.forEach(f=>f.ph=f.ph||[])};
 async function load(){if(!CFG.FB)return;try{const r=await(await fetch(CFG.FB+'/trip.json')).json();if(r){S=r;fix();localStorage.tripS=JSON.stringify(S);if(!D)R()}}catch(e){}}
 async function save(){localStorage.tripS=JSON.stringify(S);if(CFG.FB)try{await fetch(CFG.FB+'/trip.json',{method:'PUT',body:JSON.stringify(S)})}catch(e){toast('同步失败，请检查网络')}R()}
 function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',2200)}
@@ -97,8 +98,8 @@ function calc(){const r={};S.m.forEach(m=>r[m.id]={paid:0,owed:0,con:0});let tot
  S.exp.forEach(e=>{tot+=e.c;if(e.p==='pool')pu+=e.c;else if(r[e.p])r[e.p].paid+=e.c;for(const k in e.sh)if(r[k])r[k].owed+=e.sh[k]});
  S.pool.forEach(p=>{if(r[p.m])r[p.m].con+=p.c;pc+=p.c});
  const bal=pc-pu;S.m.forEach(m=>{const x=r[m.id];x.net=x.paid+x.con-x.owed});
- if(pc>0){let sum=0,big=S.m[0].id;S.m.forEach(m=>{const x=r[m.id];x.net-=Math.round(bal*x.con/pc);sum+=x.net;if(x.con>r[big].con)big=m.id});r[big].net-=sum}
- return{r,tot,bal}}
+ const cu=(S.cust&&r[S.cust])?S.cust:S.m[0].id;r[cu].net-=bal;r[cu].hold=bal; /* 保管人手上持有公款现金 */
+ return{r,tot,bal,cu}}
 /* 核心算法 3：最少转账对（贪心：最大欠款人 → 最大应收人）*/
 function txs(r){const c=[],d=[];S.m.forEach(m=>{const v=r[m.id].net;v>0?c.push([m.id,v]):v<0&&d.push([m.id,-v])});const out=[];
  while(c.length&&d.length){c.sort((a,b)=>b[1]-a[1]);d.sort((a,b)=>b[1]-a[1]);const t=Math.min(c[0][1],d[0][1]);out.push([d[0][0],c[0][0],t]);c[0][1]-=t;d[0][1]-=t;if(!c[0][1])c.shift();if(!d[0][1])d.shift()}return out}
@@ -129,31 +130,31 @@ function receipt(){const {r}=calc(),m=S.m[P],x=r[m.id],mine=S.exp.filter(e=>e.sh
  $('#dr').innerHTML=`${zz('z1','M0 8L6 0L12 8Z')}<div style="font:13px/1.6 ui-monospace,Menlo,monospace;background:#fffdf6;padding:6px 16px 14px">
  <div style="text-align:center"><b style="font-size:16px">${esc(S.name)}</b><br><b>${esc(m.name)}</b><br><span class="mut">${d.toLocaleDateString('en-GB')} ${d.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}</span></div>${ln}
  ${mine.map(e=>rw(esc(e.name)+` <span class="mut">(${e.mode==='cu'?'每人不同':'平摊 '+Object.keys(e.sh).length+' 人'})</span>`,'RM '+rm(e.sh[m.id]))).join('')||'<div class="mut">暂无参与项目</div>'}${ln}
- ${rw('已垫付','RM '+rm(x.paid))}${rw('已交公款','RM '+rm(x.con))}${rw('应分摊','RM '+rm(x.owed))}${ln}
+ ${rw('已垫付','RM '+rm(x.paid))}${rw('已交公款','RM '+rm(x.con))}${rw('应分摊','RM '+rm(x.owed))}${x.hold!=null?rw('已代管公款','− RM '+rm(x.hold)):''}${ln}
  <div class="row" style="font-size:19px;font-weight:700"><span class="sp">${n<0?'最终需补':'最终应收'}</span><span class="${n<0?'neg':'pos'}">RM ${rm(Math.abs(n))}</span></div>
  ${to?`<div class="mut" style="margin-top:8px">${to}</div>`:''}</div>${zz('z2','M0 0L6 8L12 0Z')}
  <button class="btn ghost" style="width:100%;margin-top:16px" onclick="closeD()">返回</button>`;
  $('#mask').classList.add('on');$('#dr').classList.add('on')}
-function R(){const {r,tot,bal}=calc();let h=`<div class="card"><div class="row"><div class="sp"><h1 ${ADMIN?'onclick="editTrip()"':''}>${esc(S.name)}</h1><div class="mut">${esc(S.date)}${ADMIN?'':' · 只读'}</div></div></div>
+function R(){const {r,tot,bal,cu}=calc();let h=`<div class="card"><div class="row"><div class="sp"><h1 ${ADMIN?'onclick="editTrip()"':''}>${esc(S.name)}</h1><div class="mut">${esc(S.date)}${ADMIN?'':' · 只读'}</div></div></div>
  <div class="avs">${S.m.map((m,i)=>`<div ${ADMIN?`onclick="editM(${i})"`:''}>${av(i,46)}<b>${esc(m.name)}</b></div>`).join('')}</div></div>
  <div class="stats"><div class="card"><span class="mut">总消费</span><b>RM ${rm(tot)}</b></div><div class="card"><span class="mut">🏖️ 公款剩余</span><b class="${bal<0?'neg':'pos'}">RM ${rm(bal)}</b></div></div>
- <div class="tabs">${['概览','明细','个人账单'].map((t,i)=>`<div class="${T===i?'on':''}" onclick="T=${i};R()">${t}</div>`).join('')}</div>`;
+ <div class="tabs">${['概览','明细','个人账单','📸 足迹'].map((t,i)=>`<div class="${T===i?'on':''}" onclick="T=${i};R()">${t}</div>`).join('')}</div>`;
  if(T===0){
   const sums=CATS.map(c=>[c,S.exp.filter(e=>e.cat===c[0]).reduce((a,e)=>a+e.c,0)]),mx=Math.max(1,...sums.map(s=>s[1]));
   h+=`<div class="card"><h3>分类消费</h3>${sums.map((s,i)=>`<div class="bl"><span>${s[0][1]} ${s[0][2]}</span><div class="row"><div class="bar" style="width:${s[1]/mx*100*.62}%;background:${COL[i]}"></div><span class="mut">${rm(s[1])}</span></div></div>`).join('')}</div>
-  <div class="card"><h3>结账汇总</h3><div class="mut" style="margin:-8px 0 10px">正数 = 应收，负数 = 应付；公款余额按出资比例退还</div>${S.m.map((m,i)=>{const x=r[m.id];return `<div class="row" style="margin-bottom:12px">${av(i,40)}<div class="sp"><b>${esc(m.name)}</b><div class="mut">代付 ${rm(x.paid)} · 应摊 ${rm(x.owed)} · 公款 ${rm(x.con)}</div></div>${net(x.net)}</div>`}).join('')}</div>
+  <div class="card"><h3>结账汇总</h3><div class="mut" style="margin:-8px 0 10px">正数 = 应收，负数 = 应付；公款剩余由保管人退还</div>${S.m.map((m,i)=>{const x=r[m.id];return `<div class="row" style="margin-bottom:12px">${av(i,40)}<div class="sp"><b>${esc(m.name)}</b><div class="mut">已垫付 ${rm(x.paid)} · 应分摊 ${rm(x.owed)} · 已交公款 ${rm(x.con)}${x.hold!=null?' · 代管公款 '+rm(x.hold):''}</div></div>${net(x.net)}</div>`}).join('')}</div>
   <div class="card"><h3>转账建议</h3>${txs(r).map(t=>`<div class="tx">${av(mi(t[0]),32)}<span class="sp">${esc(nm(t[0]))} → ${esc(nm(t[1]))}</span><b>RM ${rm(t[2])}</b></div>`).join('')||'<div class="mut">暂无需要转账的款项 🎉</div>'}</div>
-  <div class="card"><div class="row"><h3 class="sp" style="margin:0">公款记录</h3>${ADMIN?'<button class="btn s" onclick="collect()">收公款</button>':''}</div><div style="margin-top:10px"><div class="mut" style="margin-bottom:10px">共收 RM ${rm(S.pool.reduce((a,p)=>a+p.c,0))}</div>${S.pool.map(p=>`<div class="row" style="margin-bottom:8px">${av(mi(p.m),30)}<span class="sp">${esc(nm(p.m))} <span class="mut">已交公款</span></span><b>RM ${rm(p.c)}</b>${ADMIN?`<span class="neg" style="font-size:12px" onclick="delPool('${p.id}')">删除</span>`:''}</div>`).join('')||'<div class="mut">还没有收公款</div>'}</div></div>`;
+  <div class="card"><div class="row"><h3 class="sp" style="margin:0">公款记录</h3>${ADMIN?'<button class="btn s" onclick="collect()">收公款</button>':''}</div><div style="margin-top:10px"><div class="mut" style="margin-bottom:8px">公款保管人</div><div class="chips" style="flex-wrap:wrap">${S.m.map(m=>`<div class="chip ${m.id===cu?'on':''}" ${ADMIN?`onclick="S.cust='${m.id}';save()"`:''}>${esc(m.name)}</div>`).join('')}</div><div class="mut" style="margin-bottom:10px">共收 RM ${rm(S.pool.reduce((a,p)=>a+p.c,0))}</div>${S.pool.map(p=>`<div class="row" style="margin-bottom:8px">${av(mi(p.m),30)}<span class="sp">${esc(nm(p.m))} <span class="mut">已交公款</span></span><b>RM ${rm(p.c)}</b>${ADMIN?`<span class="neg" style="font-size:12px" onclick="delPool('${p.id}')">删除</span>`:''}</div>`).join('')||'<div class="mut">还没有收公款</div>'}</div></div>`;
  }else if(T===1){
   h+=`<div class="chips"><div class="chip ${F==='all'?'on':''}" onclick="F='all';R()">全部</div>${CATS.map(c=>`<div class="chip ${F===c[0]?'on':''}" onclick="F='${c[0]}';R()">${c[1]} ${c[2]}</div>`).join('')}</div>`;
   h+=S.exp.filter(e=>F==='all'||e.cat===F).slice().reverse().map(e=>exCard(e)).join('')||'<div class="card mut" style="text-align:center">还没有消费，点右下角 + 记一笔吧</div>';
- }else{
+ }else if(T===3){h+=fpList()}else{
   const x=r[S.m[P].id],mine=S.exp.filter(e=>e.p===S.m[P].id||e.sh[S.m[P].id]!=null).reverse();
   h+=`<div class="chips" style="flex-wrap:wrap">${S.m.map((m,i)=>`<div class="chip ${P===i?'on':''}" onclick="P=${i};R()">${av(i,26)} ${esc(m.name)}</div>`).join('')}</div>
   <div id="bill"><div class="card"><div class="row">${av(P,52)}<div class="sp"><b style="font-size:17px">${esc(S.m[P].name)} 的账单</b><div class="mut">已交公款 RM ${rm(x.con)}</div></div>${net(x.net)}</div>
   <div class="stats" style="margin:12px 0 0"><div class="card" style="background:var(--bg)"><span class="mut">已垫付</span><b>${rm(x.paid)}</b></div><div class="card" style="background:var(--bg)"><span class="mut">应分摊</span><b>${rm(x.owed)}</b></div></div></div>
   <div class="mut" style="margin:0 4px 8px">共 ${mine.length} 笔</div><div class="card" style="padding:2px 14px">${mine.map(e=>{const id=S.m[P].id,v=e.sh[id];return `<div class="row" style="padding:11px 0;border-bottom:1px solid var(--line)" onclick="showE('${e.id}')"><span style="font-size:20px">${cat(e.cat)[1]}</span><span class="sp"><b>${esc(e.name)}</b>${e.p===id?' <span class="tag">垫付</span>':''}${e.img?' 📎':''}<div class="mut" style="font-size:11px">${cat(e.cat)[2]}</div></span><b>${v!=null?'RM '+rm(v):'代付'}</b></div>`}).join('')||'<div class="mut" style="padding:12px 0">暂无记录</div>'}</div></div>
-  <button class="btn" style="width:100%" onclick="receipt()">🧾 查看账单小票</button>`;
+  <button class="btn" style="width:100%" onclick="receipt()">🧾 查看消费账单</button>`;
  }
  $('#app').innerHTML=h}
 
@@ -195,9 +196,33 @@ function drawD(){$('#dr').innerHTML=`<h3>${D.id?'编辑消费':'记一笔 ✨'}<
  <label>备注</label><textarea rows="2" oninput="D.note=this.value">${esc(D.note)}</textarea>
  <div class="row" style="margin-top:16px"><button class="btn ghost" onclick="closeD()">返回</button><button class="btn sp" onclick="saveE()">保存</button></div>`}
 function tg(id){D.parts=D.parts.includes(id)?D.parts.filter(x=>x!==id):[...D.parts,id];drawD()}
-async function upl(f){if(!f)return;if(!CFG.CLOUD)return toast('请先在代码里配置 Cloudinary');toast('上传中…');
- const fd=new FormData();fd.append('file',f);fd.append('upload_preset',CFG.PRESET);
- try{const r=await(await fetch(`https://api.cloudinary.com/v1_1/${CFG.CLOUD}/image/upload`,{method:'POST',body:fd})).json();D.img=r.secure_url;drawD()}catch(e){toast('上传失败')}}
+async function upl(f){if(!f)return;if(!CFG.CLOUD)return toast('请先在代码里配置 Cloudinary');toast('上传中…');try{D.img=await up(await shrink(f,1800,.88));drawD()}catch(e){toast('上传失败')}}
+/* 上传前压缩：长边缩到指定像素，再转 JPEG */
+function shrink(file,max,q){return new Promise((ok,no)=>{const i=new Image,u=URL.createObjectURL(file);i.onload=()=>{const k=Math.min(1,max/Math.max(i.width,i.height)),c=document.createElement('canvas');c.width=Math.round(i.width*k);c.height=Math.round(i.height*k);c.getContext('2d').drawImage(i,0,0,c.width,c.height);c.toBlob(b=>{URL.revokeObjectURL(u);b?ok(b):no()},'image/jpeg',q)};i.onerror=no;i.src=u})}
+async function up(b){const fd=new FormData();fd.append('file',b);fd.append('upload_preset',CFG.PRESET);const r=await(await fetch(`https://api.cloudinary.com/v1_1/${CFG.CLOUD}/image/upload`,{method:'POST',body:fd})).json();if(!r.secure_url)throw 0;return r.secure_url}
+
+/* ===== 📸 足迹：一个地点一张卡片，点进去看照片 ===== */
+const FE=['🍜','🦐','☕','🍹','🍰','🌴','🏖️','🚤','🎟','🏨','🛍','📍'],op=()=>{$('#mask').classList.add('on');$('#dr').classList.add('on')};
+const thumb=u=>u.includes('/upload/')?u.replace('/upload/','/upload/w_400,h_400,c_fill,f_auto,q_auto/'):u;
+function fpList(){return S.fp.map(f=>{const cv=f.cover||f.ph[0];return `<div class="card" onclick="showF('${f.id}')"><div class="row">${cv?`<img class="fc" src="${esc(thumb(cv))}">`:`<div class="fc" style="font-size:26px">${f.e||'📍'}</div>`}<b class="sp">${esc(f.name)}</b><span class="mut" style="font-size:12px">📷 ${f.ph.length}</span></div></div>`}).join('')||'<div class="card mut" style="text-align:center">还没有足迹'+(ADMIN?'，点右下角 + 新增一个地方吧':'')+'</div>'}
+function showF(id){const f=S.fp.find(x=>x.id===id);if(!f)return;
+ $('#dr').innerHTML=`<div style="text-align:center"><div class="fc" style="margin:0 auto 8px;font-size:28px">${f.e||'📍'}</div><b style="font-size:18px">${esc(f.name)}</b>${f.note?`<div class="mut" style="margin-top:4px">${esc(f.note)}</div>`:''}</div>
+ <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:14px 0">${f.ph.map((u,i)=>`<div style="position:relative"><img src="${esc(thumb(u))}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;display:block" onclick="viewImg('${esc(u)}')">${ADMIN?`<span style="position:absolute;top:3px;right:3px;background:#fffc;border-radius:50%;width:22px;height:22px;text-align:center;font-size:13px;line-height:22px" onclick="fpMenu('${f.id}',${i})">⋯</span>`:''}</div>`).join('')||'<div class="mut" style="grid-column:1/-1;text-align:center">还没有照片</div>'}</div>
+ ${ADMIN?`<label class="btn ghost" style="display:block;text-align:center;margin:0">＋ 添加照片<input type="file" accept="image/*" multiple hidden onchange="fpAdd('${f.id}',this.files)"></label><div class="row" style="justify-content:center;gap:28px;margin:14px 0"><span style="color:var(--gold)" onclick="fpForm('${f.id}')">编辑</span><span class="neg" onclick="fpDel('${f.id}')">删除足迹</span></div>`:''}
+ <button class="btn ghost" style="width:100%;margin-top:8px" onclick="closeD()">返回</button>`;op()}
+async function fpAdd(id,files){if(!CFG.CLOUD)return toast('请先配置 Cloudinary');const f=S.fp.find(x=>x.id===id);toast('上传中…');
+ for(const file of files){try{f.ph.push(await up(await shrink(file,1600,.8)))}catch(e){toast('有照片上传失败')}}
+ await save();showF(id)}
+function fpMenu(id,i){const f=S.fp.find(x=>x.id===id),a=prompt('输入 1 = 设为封面，2 = 删除这张照片');
+ if(a==='1'){f.cover=f.ph[i];save().then(()=>showF(id))}else if(a==='2'){f.ph.splice(i,1);if(f.cover&&!f.ph.includes(f.cover))f.cover='';save().then(()=>showF(id))}}
+function fpForm(id){const f=id&&S.fp.find(x=>x.id===id);D={fp:1,id:f?f.id:'',name:f?f.name:'',note:f?f.note||'':'',e:f?f.e||'📍':'📍'};drawFp();op()}
+function drawFp(){$('#dr').innerHTML=`<h3>${D.id?'编辑足迹':'新增足迹 📸'}</h3><label>地点名称</label><input type="text" placeholder="例：Kuah Town Seafood" value="${esc(D.name)}" oninput="D.name=this.value">
+ <label>一句话说明（可选）</label><input type="text" value="${esc(D.note)}" oninput="D.note=this.value">
+ <label>封面图标（还没有照片时显示）</label><div class="chips" style="flex-wrap:wrap">${FE.map(x=>`<div class="chip ${D.e===x?'on':''}" style="font-size:20px" onclick="D.e='${x}';drawFp()">${x}</div>`).join('')}</div>
+ <div class="row" style="margin-top:16px"><button class="btn ghost" onclick="closeD()">返回</button><button class="btn sp" onclick="saveFp()">保存</button></div>`}
+function saveFp(){const n=D.name.trim();if(!n)return toast('请输入地点名称');
+ if(D.id){const f=S.fp.find(x=>x.id===D.id);f.name=n;f.note=D.note.trim();f.e=D.e}else S.fp.push({id:'f'+Date.now(),name:n,note:D.note.trim(),e:D.e,cover:'',ph:[]});closeD();save()}
+function fpDel(id){if(confirm('删除这个足迹？（照片记录会一起移除）')){S.fp=S.fp.filter(x=>x.id!==id);closeD();save()}}
 function saveE(){const c=cents(D.amt);if(!(c>0))return toast('请输入金额');const id=D.id||'e'+Date.now();let sh={},ex=[];
  if(D.mode==='cu'){for(const k in D.cu){const v=cents(D.cu[k]);if(v>0)sh[k]=v}
   if(!Object.keys(sh).length)return toast('请填写成员金额');if(Object.values(sh).reduce((a,b)=>a+b,0)!==c)return toast('每人金额加起来要等于总额')}
