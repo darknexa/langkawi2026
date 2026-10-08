@@ -73,7 +73,9 @@ let S=JSON.parse(localStorage.tripS||'null')||{name:'Langkawi Trip 2026',date:'9
  m:[1,2,3,4,5].map(i=>({id:'m'+(i-1),name:'成员'+i,e:''})),pool:[],exp:[]};
 let T=0,F='all',P=0,D=null;
 const fix=()=>{S.pool=S.pool||[];S.exp=S.exp||[];S.exp.forEach(e=>{e.ex=e.ex||[]});S.fp=S.fp||[];S.fp.forEach(f=>f.ph=f.ph||[])};
-async function load(){if(!CFG.FB)return;try{const r=await(await fetch(CFG.FB+'/trip.json')).json();if(r){S=r;fix();localStorage.tripS=JSON.stringify(S);if(!D)R()}}catch(e){}}
+let LAST='';
+/* 同步：页面在后台时不抓取；数据没变就不重画 */
+async function load(){if(!CFG.FB||document.hidden)return;try{const r=await(await fetch(CFG.FB+'/trip.json')).json(),t=JSON.stringify(r);if(r&&t!==LAST){LAST=t;S=r;fix();localStorage.tripS=JSON.stringify(S);if(!D)R()}}catch(e){}}
 async function save(){localStorage.tripS=JSON.stringify(S);if(CFG.FB)try{await fetch(CFG.FB+'/trip.json',{method:'PUT',body:JSON.stringify(S)})}catch(e){toast('同步失败，请检查网络')}R()}
 function toast(t){const e=$('#toast');e.textContent=t;e.style.display='block';setTimeout(()=>e.style.display='none',2200)}
 
@@ -206,7 +208,7 @@ const FE=['🍜','🦐','☕','🍹','🍰','🌴','🏖️','🚤','🎟','🏨
 const thumb=u=>u.includes('/upload/')?u.replace('/upload/','/upload/w_400,h_400,c_fill,f_auto,q_auto/'):u;
 function fpList(){return S.fp.map(f=>{const cv=f.cover||f.ph[0];return `<div class="card" onclick="showF('${f.id}')"><div class="row">${cv?`<img class="fc" src="${esc(thumb(cv))}">`:`<div class="fc" style="font-size:26px">${f.e||'📍'}</div>`}<b class="sp">${esc(f.name)}</b><span class="mut" style="font-size:12px">📷 ${f.ph.length}</span></div></div>`}).join('')||'<div class="card mut" style="text-align:center">还没有足迹'+(ADMIN?'，点右下角 + 新增一个地方吧':'')+'</div>'}
 function showF(id){const f=S.fp.find(x=>x.id===id);if(!f)return;
- $('#dr').innerHTML=`<div style="text-align:center"><div class="fc" style="margin:0 auto 8px;font-size:28px">${f.e||'📍'}</div><b style="font-size:18px">${esc(f.name)}</b>${f.note?`<div class="mut" style="margin-top:4px">${esc(f.note)}</div>`:''}</div>
+ $('#dr').innerHTML=`<div style="text-align:center">${(f.cover||f.ph[0])?`<img class="fc" style="margin:0 auto 8px" src="${esc(thumb(f.cover||f.ph[0]))}">`:`<div class="fc" style="margin:0 auto 8px;font-size:28px">${f.e||'📍'}</div>`}<b style="font-size:18px">${esc(f.name)}</b>${f.note?`<div class="mut" style="margin-top:4px">${esc(f.note)}</div>`:''}</div>
  <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:14px 0">${f.ph.map((u,i)=>`<div style="position:relative"><img src="${esc(thumb(u))}" style="width:100%;aspect-ratio:1;object-fit:cover;border-radius:12px;display:block" onclick="viewImg('${esc(u)}')">${ADMIN?`<span style="position:absolute;top:3px;right:3px;background:#fffc;border-radius:50%;width:22px;height:22px;text-align:center;font-size:13px;line-height:22px" onclick="fpMenu('${f.id}',${i})">⋯</span>`:''}</div>`).join('')||'<div class="mut" style="grid-column:1/-1;text-align:center">还没有照片</div>'}</div>
  ${ADMIN?`<label class="btn ghost" style="display:block;text-align:center;margin:0">＋ 添加照片<input type="file" accept="image/*" multiple hidden onchange="fpAdd('${f.id}',this.files)"></label><div class="row" style="justify-content:center;gap:28px;margin:14px 0"><span style="color:var(--gold)" onclick="fpForm('${f.id}')">编辑</span><span class="neg" onclick="fpDel('${f.id}')">删除足迹</span></div>`:''}
  <button class="btn ghost" style="width:100%;margin-top:8px" onclick="closeD()">返回</button>`;op()}
@@ -234,7 +236,7 @@ function saveE(){const c=cents(D.amt);if(!(c>0))return toast('请输入金额');
  closeD();save()}
 function del(){if(confirm('确定删除这笔消费？')){S.exp=S.exp.filter(x=>x.id!==D.id);closeD();save()}}
 
-fix();R();load();setInterval(load,10000);
+fix();R();load();setInterval(load,30000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)load()});
 </script>
 </body>
 </html>
